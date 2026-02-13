@@ -544,7 +544,7 @@ function ListPage() {
             <tbody>
               {processedItems.map(item => (
                 <tr key={item.id} className={mailedIds.has(item.id) ? 'row-mailed' : ''}>
-                  <td>
+                  <td data-label="Mailed">
                     <input
                       type="checkbox"
                       className="mailed-checkbox"
@@ -553,14 +553,14 @@ function ListPage() {
                       title={mailedIds.has(item.id) ? 'Mark as not mailed' : 'Mark as mailed'}
                     />
                   </td>
-                  <td>
-                    <strong>{item.name}</strong>
+                  <td data-label="Name">
+                    {item.name}
                     <br /><small>{item.title}</small>
                   </td>
-                  <td>{item.department}</td>
-                  <td>{item.relevance_score}</td>
-                  <td>{item.email || '-'}</td>
-                  <td>
+                  <td data-label="Department">{item.department}</td>
+                  <td data-label="Score">{item.relevance_score}</td>
+                  <td data-label="Email">{item.email || '-'}</td>
+                  <td data-label="Actions">
                     <div className="action-btns">
                       <button
                         className={'copy-btn ' + (copiedIds.has(item.id) ? 'copied' : '')}

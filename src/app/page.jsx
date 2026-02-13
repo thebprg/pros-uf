@@ -74,6 +74,7 @@ function App() {
   // MUST be useState (not useRef) so persistence effects only run
   // in the NEXT render cycle when state actually holds hydrated values.
   const [hasHydrated, setHasHydrated] = useState(false)
+  const [showMobileSidebar, setShowMobileSidebar] = useState(false)
 
   // Hydrate all localStorage state after mount (client-only)
   useEffect(() => {
@@ -380,7 +381,16 @@ function App() {
   return (
     <div className="app">
       <header className="header">
-        <h1>Gator Scholars</h1>
+        <div className="header-left">
+          <h1>Gator Scholars</h1>
+          <button
+            className="mobile-filter-toggle"
+            onClick={() => setShowMobileSidebar(!showMobileSidebar)}
+          >
+            {showMobileSidebar ? '✕' : 'Filters'}
+          </button>
+        </div>
+
         <div className="header-right">
           <div className="header-stats">
             {loading ? 'Loading...' : (
@@ -401,7 +411,7 @@ function App() {
       </header>
 
       <div className="main">
-        <aside className="sidebar">
+        <aside className={`sidebar ${showMobileSidebar ? 'open' : ''}`}>
           <div className="filter-section">
             <label className="filter-label">🔍 Search by Name or Title</label>
             <input

@@ -1201,3 +1201,183 @@ body {
 }
 
 .clear-filter-btn:hover { background: rgba(239, 68, 68, 0.1); }
+
+/* ── Mobile Responsiveness ── */
+
+.mobile-filter-toggle {
+  display: none; /* Hidden on desktop */
+}
+
+@media (max-width: 768px) {
+  html, body {
+    overflow: hidden; /* Revert to hidden, let .app handle scroll */
+    height: 100%;
+  }
+
+  .app {
+    height: 100vh;
+    overflow-y: auto; /* Scrollable app container */
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* Header adjustments */
+  .header {
+    padding: 0.8rem 1rem;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    flex-wrap: wrap; /* Allow wrapping */
+    gap: 0.5rem;
+    height: auto;
+  }
+
+  .header h1 {
+    font-size: 1.1rem;
+    margin-right: 0.5rem;
+    flex: 1 1 auto; /* Allow growing */
+  }
+
+  .header-left {
+    display: flex;
+    align-items: center;
+    gap: 0.8rem;
+    width: 100%; /* Take full width */
+    margin-bottom: 0.5rem;
+    flex-wrap: wrap;
+  }
+
+  .mobile-filter-toggle {
+    display: block;
+    background: rgba(255, 255, 255, 0.15);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    color: white;
+    padding: 0.3rem 0.6rem;
+    border-radius: 6px;
+    font-size: 0.8rem;
+    cursor: pointer;
+  }
+
+  .header-stats {
+    display: none; /* Hide stats on mobile to save space */
+  }
+
+  .list-badge {
+    padding: 0.3rem 0.6rem;
+    font-size: 0.75rem;
+  }
+  
+  .list-badge span { display: none; } /* Hide 'View List' text if needed, or keep icon */
+
+  /* Main Layout Stack */
+  .main {
+    flex-direction: column;
+    height: auto;
+    overflow: visible;
+  }
+
+  /* Sidebar as Overlay */
+  .sidebar {
+    position: fixed;
+    inset: 0;
+    width: 100%;
+    max-width: 100%;
+    height: 100vh;
+    z-index: 90;
+    transform: translateX(-100%);
+    transition: transform 0.3s ease;
+    padding-top: 5rem; /* Space for header */
+  }
+
+  .sidebar.open {
+    transform: translateX(0);
+  }
+
+  /* Results Grid */
+  .results {
+    padding: 1rem;
+    overflow: visible;
+    height: auto;
+  }
+
+  .results-grid {
+    grid-template-columns: 1fr; /* Full width cards */
+  }
+  
+  /* Modal Full Screen */
+  .modal {
+    width: 100%;
+    height: 100%;
+    max-height: 100%;
+    border-radius: 0;
+    display: flex;
+    flex-direction: column;
+  }
+  
+  .modal-overlay {
+    padding: 0;
+    align-items: flex-start;
+  }
+  
+  .modal-body {
+    flex: 1;
+    overflow-y: auto;
+  }
+
+  /* List Page Mobile Table -> Cards */
+  .list-table.full-page {
+    background: transparent;
+    box-shadow: none;
+    border-radius: 0;
+  }
+
+  .list-table.full-page thead {
+    display: none;
+  }
+
+  .list-table.full-page tr {
+    display: block;
+    margin-bottom: 1rem;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--card-bg);
+    padding: 1rem;
+    box-shadow: var(--shadow-sm);
+  }
+
+  .list-table.full-page td {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.5rem 0;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .list-table.full-page td:last-child {
+    border-bottom: none;
+    justify-content: flex-end;
+    gap: 0.5rem;
+    padding-top: 1rem;
+  }
+  
+  .list-table.full-page td:before {
+    content: attr(data-label);
+    font-weight: 600;
+    font-size: 0.85rem;
+    color: var(--text-muted);
+  }
+  
+  /* Mailed row styling adjustments for mobile card view */
+  .row-mailed td:first-child {
+    border-left: none; /* Remove left border on td */
+  }
+  
+  .row-mailed {
+    border-left: 4px solid #22c55e !important; /* Move border to tr */
+  }
+
+  .list-controls {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 1rem;
+  }
+}
