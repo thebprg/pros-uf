@@ -211,6 +211,18 @@ function ListPage() {
     return items
   }, [savedItems, sortByScore, hideMailed, mailedIds])
 
+  // Fallback for mobile over HTTP where navigator.clipboard is unavailable
+  const fallbackCopy = (text) => {
+    const ta = document.createElement('textarea')
+    ta.value = text
+    ta.style.position = 'fixed'
+    ta.style.left = '-9999px'
+    document.body.appendChild(ta)
+    ta.select()
+    document.execCommand('copy')
+    document.body.removeChild(ta)
+  }
+
   const copyToClipboard = async (item) => {
     const { requirements, reasoning, ...rest } = item
     const data = {
@@ -218,8 +230,13 @@ function ListPage() {
       possible_requirements: requirements,
       reasoning: reasoning
     }
+    const text = JSON.stringify(data, null, 2)
     try {
-      await navigator.clipboard.writeText(JSON.stringify(data, null, 2))
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(text)
+      } else {
+        fallbackCopy(text)
+      }
       setCopiedIds(prev => {
         const newSet = new Set(prev)
         newSet.add(item.id)
@@ -240,7 +257,11 @@ function ListPage() {
     }
     const fullPrompt = builtPrompt + '\n' + JSON.stringify(data, null, 2)
     try {
-      await navigator.clipboard.writeText(fullPrompt)
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(fullPrompt)
+      } else {
+        fallbackCopy(fullPrompt)
+      }
       setPromptCopiedIds(prev => {
         const newSet = new Set(prev)
         newSet.add(item.id)
@@ -355,13 +376,13 @@ function ListPage() {
             ⚙️ Prompt Settings
           </button>
           <button className="clear-list-btn header-btn" onClick={clearList} disabled={savedItems.length === 0}>
-            🗑️ Clear All
+            Clear All
           </button>
           <button className="download-btn csv" onClick={downloadCSV} disabled={savedItems.length === 0}>
-            📄 CSV
+            CSV
           </button>
           <button className="download-btn json" onClick={downloadJSON} disabled={savedItems.length === 0}>
-            📦 JSON
+            JSON
           </button>
         </div>
       </header>

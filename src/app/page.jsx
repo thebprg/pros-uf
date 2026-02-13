@@ -383,6 +383,11 @@ function App() {
       <header className="header">
         <div className="header-left">
           <h1>Gator Scholars</h1>
+          <div className="header-stats">
+            {loading ? 'Loading...' : (
+              <>Showing <strong>{scholars.length}</strong> of {totalResults} matches</>
+            )}
+          </div>
           <button
             className="mobile-filter-toggle"
             onClick={() => setShowMobileSidebar(!showMobileSidebar)}
@@ -392,11 +397,6 @@ function App() {
         </div>
 
         <div className="header-right">
-          <div className="header-stats">
-            {loading ? 'Loading...' : (
-              <>Showing <strong>{scholars.length}</strong> of {totalResults} matches</>
-            )}
-          </div>
           <button className="list-badge" onClick={() => router.push('/list')}>
             📋 View List {savedList.size > 0 && <span className="list-count">{savedList.size}</span>}
           </button>
