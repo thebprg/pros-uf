@@ -1,7 +1,8 @@
+'use client'
+
 import { useState, useMemo, useCallback, memo, useEffect, useRef } from 'react'
-import { useNavigate } from 'react-router-dom'
-import './App.css'
-import { fetchScholars, fetchScholarDetail, fetchFilterOptions } from './api'
+import { useRouter } from 'next/navigation'
+import { fetchScholars, fetchScholarDetail, fetchFilterOptions } from '@/lib/api'
 
 const DEPT_MAPPINGS = {
   'AG': 'College of Agricultural and Life Sciences',
@@ -43,6 +44,7 @@ function App() {
 
   // Load filters from localStorage
   const loadFilters = () => {
+    if (typeof window === 'undefined') return null
     const saved = localStorage.getItem('filters')
     if (saved) {
       const f = JSON.parse(saved)
@@ -103,10 +105,11 @@ function App() {
 
   // UI state
   const [showMoreFilters, setShowMoreFilters] = useState(false)
-  const navigate = useNavigate()
+  const router = useRouter()
 
   // Saved list (cart-like feature) - persisted to localStorage
   const [savedList, setSavedList] = useState(() => {
+    if (typeof window === 'undefined') return new Set()
     const saved = localStorage.getItem('savedList')
     return saved ? new Set(JSON.parse(saved)) : new Set()
   })
@@ -357,7 +360,7 @@ function App() {
               <>Showing <strong>{scholars.length}</strong> of {totalResults} matches</>
             )}
           </div>
-          <button className="list-badge" onClick={() => navigate('/list')}>
+          <button className="list-badge" onClick={() => router.push('/list')}>
             📋 View List {savedList.size > 0 && <span className="list-count">{savedList.size}</span>}
           </button>
           <button

@@ -1,14 +1,16 @@
+'use client'
+
 import { useState, useCallback, useMemo, useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
-import './App.css'
-import { fetchScholarsBatch } from './api'
+import { useRouter } from 'next/navigation'
+import { fetchScholarsBatch } from '@/lib/api'
 
 
 function ListPage() {
-  const navigate = useNavigate()
+  const router = useRouter()
   
   // Load saved list from localStorage
   const [savedList, setSavedList] = useState(() => {
+    if (typeof window === 'undefined') return new Set()
     const saved = localStorage.getItem('savedList')
     return saved ? new Set(JSON.parse(saved)) : new Set()
   })
@@ -42,72 +44,20 @@ function ListPage() {
   
   // Load copied IDs from localStorage
   const [copiedIds, setCopiedIds] = useState(() => {
+    if (typeof window === 'undefined') return new Set()
     const saved = localStorage.getItem('copiedIds')
     return saved ? new Set(JSON.parse(saved)) : new Set()
   })
   
   // Load prompt copied IDs from localStorage
   const [promptCopiedIds, setPromptCopiedIds] = useState(() => {
+    if (typeof window === 'undefined') return new Set()
     const saved = localStorage.getItem('promptCopiedIds')
     return saved ? new Set(JSON.parse(saved)) : new Set()
   })
 
   // Email prompt template
-  const EMAIL_PROMPT = `You are drafting a concise, professional email AS me (Bhanu Prakash Reddy Gundam) to request a volunteer research or project-based position with a university professor.
-
-Input:
-1. Professor metadata (JSON format - see expected fields below)
-2. My fixed academic background (below)
-
-Expected JSON fields:
-- name, department, research_tags, grants (array), publications (array)
-
-Output format:
-- Provide ONLY the email subject line and body (no commentary)
-
-Email requirements:
-- Length: 180–200 words
-- Tone: Respectful, professional, learning-oriented
-- Assume the professor is very busy and may skim
-- No bullet points in the email body
-
-Email structure (strictly follow):
-1. Subject line that is professional and indicates purpose, but remains broad enough not to limit to one specific project
-   - "Volunteer Position Inquiry – Computer Science Graduate"
-   Do NOT mention specific projects/grants in the subject line
-2. Brief introduction (1–2 sentences) - who I am, my degree, graduation date from UF, and reason for reaching out (seeking an opportunity to work as a volunteer in their research or projects). 
-   Example: "My name is Bhanu, a recent Computer & Information Science graduate from the University of Florida (December 2025). I am writing to inquire about potential opportunities to work as a volunteer in your research or ongoing projects, particularly in areas aligned with my academic background and technical skills."
-3. Reference to 1–2 of the professor's works as examples of their research direction (1–2 sentences)
-4. My academic background and relevant coursework (2 sentences - integrate coursework naturally into prose)
-5. Flexible interest in contributing to any ongoing project + how I can help (2–3 sentences)
-6. Polite close mentioning attached resume
-
-Content rules:
-- Select 1–2 of the professor's most relevant/recent works (grants OR publications) that align with my CS background
-- When mentioning these works in the email, refer to them as "projects", "research", or "work" (NOT "grants")
-- When referencing published papers: use "I found your work on [X] interesting" (you can read publications)
-- When referencing ongoing projects/grants: use "I found the concept/idea behind your work on [X] interesting" or "Your work on [X] caught my attention" (you don't have access to unpublished details)
-- Frame these as illustrative examples, NOT the only projects I want to join
-- If there is a natural connection between their research and CS skills (Data Engineering, Data Analysis, Machine Learning, Web Development, UX Design, etc.), mention how your background could be relevant
-- If the connection is unclear or forced, focus instead on your genuine interest in learning from their work and contributing in whatever capacity might be helpful
-- Do NOT create artificial connections or assume they need CS assistance if it's not evident from their research
-- Use learning-oriented language: "assist with", "contribute to", "support", "gain hands-on experience"
-- Do NOT use: "collaborate", "collaboration", "partner", "grants"
-- Do NOT ask about funding or open positions
-- Do NOT phrase as "I want to work on [specific project X]"
-- End with a soft ask that conveys interest in knowing about any opportunities to work as a volunteer
-  Example: "I would be grateful to know if there are any opportunities for me to contribute as a volunteer..."
-
-My fixed details (use verbatim):
-- Name: Bhanu Prakash Reddy Gundam (use "Bhanu" in greeting)
-- University: University of Florida (UF)
-- Graduated: December 2025
-- Degree: Graduate in Computer & Information Science
-- Professional interest: "I have a strong foundation in data engineering for building and managing analytical data pipelines, combined with experience in machine learning, and a keen interest in developing effective web applications and user-centered UX design."
-- Relevant coursework:
-  CIS6930 – NLP Applications (Grade: A), CAP5771 – Introduction to Data Science (Grade: A), CIS6930 – Data Engineering (Grade: A), CEN5728 – UX Design (Grade: A-)
-
-Here is the professor data: `
+  const EMAIL_PROMPT = 'You are drafting a concise, professional email AS me (Bhanu Prakash Reddy Gundam) to request a volunteer research or project-based position with a university professor.\n\nInput:\n1. Professor metadata (JSON format - see expected fields below)\n2. My fixed academic background (below)\n\nExpected JSON fields:\n- name, department, research_tags, grants (array), publications (array)\n\nOutput format:\n- Provide ONLY the email subject line and body (no commentary)\n\nEmail requirements:\n- Length: 180\u2013200 words\n- Tone: Respectful, professional, learning-oriented\n- Assume the professor is very busy and may skim\n- No bullet points in the email body\n\nEmail structure (strictly follow):\n1. Subject line that is professional and indicates purpose, but remains broad enough not to limit to one specific project\n   - "Volunteer Position Inquiry \u2013 Computer Science Graduate"\n   Do NOT mention specific projects/grants in the subject line\n2. Brief introduction (1\u20132 sentences) - who I am, my degree, graduation date from UF, and reason for reaching out (seeking an opportunity to work as a volunteer in their research or projects).\n   Example: "My name is Bhanu, a recent Computer & Information Science graduate from the University of Florida (December 2025). I am writing to inquire about potential opportunities to work as a volunteer in your research or ongoing projects, particularly in areas aligned with my academic background and technical skills."\n3. Reference to 1\u20132 of the professor\'s works as examples of their research direction (1\u20132 sentences)\n4. My academic background and relevant coursework (2 sentences - integrate coursework naturally into prose)\n5. Flexible interest in contributing to any ongoing project + how I can help (2\u20133 sentences)\n6. Polite close mentioning attached resume\n\nContent rules:\n- Select 1\u20132 of the professor\'s most relevant/recent works (grants OR publications) that align with my CS background\n- When mentioning these works in the email, refer to them as "projects", "research", or "work" (NOT "grants")\n- When referencing published papers: use "I found your work on [X] interesting" (you can read publications)\n- When referencing ongoing projects/grants: use "I found the concept/idea behind your work on [X] interesting" or "Your work on [X] caught my attention" (you don\'t have access to unpublished details)\n- Frame these as illustrative examples, NOT the only projects I want to join\n- If there is a natural connection between their research and CS skills (Data Engineering, Data Analysis, Machine Learning, Web Development, UX Design, etc.), mention how your background could be relevant\n- If the connection is unclear or forced, focus instead on your genuine interest in learning from their work and contributing in whatever capacity might be helpful\n- Do NOT create artificial connections or assume they need CS assistance if it\'s not evident from their research\n- Use learning-oriented language: "assist with", "contribute to", "support", "gain hands-on experience"\n- Do NOT use: "collaborate", "collaboration", "partner", "grants"\n- Do NOT ask about funding or open positions\n- Do NOT phrase as "I want to work on [specific project X]"\n- End with a soft ask that conveys interest in knowing about any opportunities to work as a volunteer\n  Example: "I would be grateful to know if there are any opportunities for me to contribute as a volunteer..."\n\nMy fixed details (use verbatim):\n- Name: Bhanu Prakash Reddy Gundam (use "Bhanu" in greeting)\n- University: University of Florida (UF)\n- Graduated: December 2025\n- Degree: Graduate in Computer & Information Science\n- Professional interest: "I have a strong foundation in data engineering for building and managing analytical data pipelines, combined with experience in machine learning, and a keen interest in developing effective web applications and user-centered UX design."\n- Relevant coursework:\n  CIS6930 \u2013 NLP Applications (Grade: A), CAP5771 \u2013 Introduction to Data Science (Grade: A), CIS6930 \u2013 Data Engineering (Grade: A), CEN5728 \u2013 UX Design (Grade: A-)\n\nHere is the professor data: '
 
   // Sort controls
   const [sortByScore, setSortByScore] = useState(false)
@@ -129,7 +79,6 @@ Here is the professor data: `
     }
     try {
       await navigator.clipboard.writeText(JSON.stringify(data, null, 2))
-      // Mark as copied
       setCopiedIds(prev => {
         const newSet = new Set(prev)
         newSet.add(item.id)
@@ -151,7 +100,6 @@ Here is the professor data: `
     const fullPrompt = EMAIL_PROMPT + '\n' + JSON.stringify(data, null, 2)
     try {
       await navigator.clipboard.writeText(fullPrompt)
-      // Mark as prompt copied
       setPromptCopiedIds(prev => {
         const newSet = new Set(prev)
         newSet.add(item.id)
@@ -176,6 +124,8 @@ Here is the professor data: `
     setSavedList(new Set())
     localStorage.setItem('savedList', JSON.stringify([]))
   }, [])
+
+  const escCSV = (val) => '"' + String(val || '').replace(/"/g, '""') + '"'
   
   const downloadCSV = useCallback(() => {
     if (savedItems.length === 0) return
@@ -190,19 +140,19 @@ Here is the professor data: `
     const csvRows = [headers.join(',')]
     savedItems.forEach(item => {
       const row = [
-        `"${(item.name || '').replace(/"/g, '""')}"`,
-        `"${(item.email || '').replace(/"/g, '""')}"`,
-        `"${(item.department || '').replace(/"/g, '""')}"`,
-        `"${(item.position || '').replace(/"/g, '""')}"`,
-        `"${(item.title || '').replace(/"/g, '""')}"`,
+        escCSV(item.name),
+        escCSV(item.email),
+        escCSV(item.department),
+        escCSV(item.position),
+        escCSV(item.title),
         item.relevance_score || 0,
-        `"${(item.should_email || '').replace(/"/g, '""')}"`,
+        escCSV(item.should_email),
         item.active_grants_count || 0,
-        `"${JSON.stringify(item.active_grants || []).replace(/"/g, '""')}"`,
-        `"${JSON.stringify(item.expired_grants || []).replace(/"/g, '""')}"`,
-        `"${JSON.stringify(item.publications || []).replace(/"/g, '""')}"`,
-        `"${(item.requirements || []).join('; ').replace(/"/g, '""')}"`,
-        `"${(item.reasoning || []).join('; ').replace(/"/g, '""')}"`
+        escCSV(JSON.stringify(item.active_grants || [])),
+        escCSV(JSON.stringify(item.expired_grants || [])),
+        escCSV(JSON.stringify(item.publications || [])),
+        escCSV((item.requirements || []).join('; ')),
+        escCSV((item.reasoning || []).join('; '))
       ]
       csvRows.push(row.join(','))
     })
@@ -212,9 +162,11 @@ Here is the professor data: `
     const url = URL.createObjectURL(blob)
     const link = document.createElement('a')
     link.href = url
-    link.download = `scholars_list_${new Date().toISOString().split('T')[0]}.csv`
+    link.download = 'scholars_list_' + new Date().toISOString().split('T')[0] + '.csv'
+    document.body.appendChild(link)
     link.click()
-    URL.revokeObjectURL(url)
+    document.body.removeChild(link)
+    setTimeout(() => URL.revokeObjectURL(url), 1000)
   }, [savedItems])
   
   const downloadJSON = useCallback(() => {
@@ -234,16 +186,18 @@ Here is the professor data: `
     const url = URL.createObjectURL(blob)
     const link = document.createElement('a')
     link.href = url
-    link.download = `scholars_list_${new Date().toISOString().split('T')[0]}.json`
+    link.download = 'scholars_list_' + new Date().toISOString().split('T')[0] + '.json'
+    document.body.appendChild(link)
     link.click()
-    URL.revokeObjectURL(url)
+    document.body.removeChild(link)
+    setTimeout(() => URL.revokeObjectURL(url), 1000)
   }, [savedItems])
 
   return (
     <div className="app">
       <header className="header">
         <div className="header-left">
-          <button className="back-btn" onClick={() => navigate('/')}>
+          <button className="back-btn" onClick={() => router.push('/')}>
             ← Back to Search
           </button>
           <h1>📋 Saved Scholars ({savedItems.length})</h1>
@@ -275,7 +229,7 @@ Here is the professor data: `
           <div className="empty-state">
             <h3>Your list is empty</h3>
             <p>Add scholars using the + button on their cards</p>
-            <button className="back-link" onClick={() => navigate('/')}>
+            <button className="back-link" onClick={() => router.push('/')}>
               ← Go back to search
             </button>
           </div>
@@ -316,14 +270,14 @@ Here is the professor data: `
                   <td>
                     <div className="action-btns">
                       <button 
-                        className={`copy-btn ${copiedIds.has(item.id) ? 'copied' : ''}`}
+                        className={'copy-btn ' + (copiedIds.has(item.id) ? 'copied' : '')}
                         onClick={() => copyToClipboard(item)} 
                         title={copiedIds.has(item.id) ? 'JSON Copied!' : 'Copy JSON'}
                       >
                         {copiedIds.has(item.id) ? '✓' : '📋'}
                       </button>
                       <button 
-                        className={`prompt-btn ${promptCopiedIds.has(item.id) ? 'copied' : ''}`}
+                        className={'prompt-btn ' + (promptCopiedIds.has(item.id) ? 'copied' : '')}
                         onClick={() => copyPromptToClipboard(item)} 
                         title={promptCopiedIds.has(item.id) ? 'Prompt Copied!' : 'Copy Email Prompt'}
                       >

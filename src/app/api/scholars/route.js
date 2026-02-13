@@ -1,7 +1,5 @@
-import express from 'express'
-import { getDB } from '../db.js'
-
-const router = express.Router()
+import { NextResponse } from 'next/server'
+import clientPromise from '@/lib/db'
 
 // Card-level projection — only fields needed for the grid view
 const CARD_PROJECTION = {
@@ -17,22 +15,27 @@ const CARD_PROJECTION = {
   requirements: 1,
 }
 
-// GET /api/scholars — paginated, filtered list (card-level fields)
-router.get('/', async (req, res) => {
+export async function GET(request) {
   try {
-    const db = getDB()
+    const client = await clientPromise
+    const db = client.db('ufl_scholars_db')
     const collection = db.collection('scholars')
-    const {
-      page = 1,
-      search,
-      minScore, maxScore,
-      minGrants, maxGrants,
-      reqSearch,
-      emailOnly,
-      depts, deptMode,
-      subDepts, subDeptMode,
-      positions, posMode,
-    } = req.query
+
+    const { searchParams } = request.nextUrl
+    const page = searchParams.get('page') || '1'
+    const search = searchParams.get('search')
+    const minScore = searchParams.get('minScore')
+    const maxScore = searchParams.get('maxScore')
+    const minGrants = searchParams.get('minGrants')
+    const maxGrants = searchParams.get('maxGrants')
+    const reqSearch = searchParams.get('reqSearch')
+    const emailOnly = searchParams.get('emailOnly')
+    const depts = searchParams.get('depts')
+    const deptMode = searchParams.get('deptMode')
+    const subDepts = searchParams.get('subDepts')
+    const subDeptMode = searchParams.get('subDeptMode')
+    const positions = searchParams.get('positions')
+    const posMode = searchParams.get('posMode')
 
     const query = {}
 
@@ -112,7 +115,7 @@ router.get('/', async (req, res) => {
     const limit = 25
     const skip = (parseInt(page) - 1) * limit
 
-    // Use aggregation to add publications_count without returning the full array
+    // Aggregation to add publications_count without returning the full array
     const pipeline = [
       { $match: query },
       { $sort: { relevance_score: -1 } },
@@ -137,7 +140,7 @@ router.get('/', async (req, res) => {
     const data = result.data
     const total = result.total[0]?.count || 0
 
-    res.json({
+    return NextResponse.json({
       data,
       total,
       page: parseInt(page),
@@ -145,62 +148,6 @@ router.get('/', async (req, res) => {
     })
   } catch (err) {
     console.error('Error fetching scholars:', err)
-    res.status(500).json({ error: 'Failed to fetch scholars' })
+    return NextResponse.json({ error: 'Failed to fetch scholars' }, { status: 500 })
   }
-})
-
-// GET /api/scholars/filters — distinct departments and positions
-router.get('/filters', async (req, res) => {
-  try {
-    const db = getDB()
-    const collection = db.collection('scholars')
-    const [departments, positions] = await Promise.all([
-      collection.distinct('department'),
-      collection.distinct('position'),
-    ])
-    res.json({ departments: departments.sort(), positions: positions.sort() })
-  } catch (err) {
-    console.error('Error fetching filters:', err)
-    res.status(500).json({ error: 'Failed to fetch filter options' })
-  }
-})
-
-// POST /api/scholars/batch — full data for multiple scholars by IDs
-router.post('/batch', async (req, res) => {
-  try {
-    const db = getDB()
-    const collection = db.collection('scholars')
-    const { ids } = req.body
-    if (!ids || !Array.isArray(ids)) {
-      return res.status(400).json({ error: 'ids array required' })
-    }
-    const scholars = await collection
-      .find({ id: { $in: ids } }, { projection: { _id: 0 } })
-      .toArray()
-    res.json(scholars)
-  } catch (err) {
-    console.error('Error fetching batch:', err)
-    res.status(500).json({ error: 'Failed to fetch scholars batch' })
-  }
-})
-
-// GET /api/scholars/:id — full single scholar
-router.get('/:id', async (req, res) => {
-  try {
-    const db = getDB()
-    const collection = db.collection('scholars')
-    const scholar = await collection.findOne(
-      { id: req.params.id },
-      { projection: { _id: 0 } }
-    )
-    if (!scholar) {
-      return res.status(404).json({ error: 'Scholar not found' })
-    }
-    res.json(scholar)
-  } catch (err) {
-    console.error('Error fetching scholar:', err)
-    res.status(500).json({ error: 'Failed to fetch scholar' })
-  }
-})
-
-export default router
+}

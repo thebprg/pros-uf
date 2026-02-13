@@ -1,16 +1,73 @@
-# React + Vite
+# Gator Scholars
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Browse, filter, and save University of Florida faculty scholars. Built with **Next.js** and **MongoDB Atlas**.
 
-Currently, two official plugins are available:
+## Features
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+- **Search & Filter** — by name, relevance score, grants, department, position, CS requirements
+- **Scholar Detail Modal** — full profile with grants, publications, and analysis reasoning
+- **Saved List** — add scholars, export as CSV/JSON, copy email prompts
+- **Pagination** — 25 scholars per page, served on demand from MongoDB
 
-## React Compiler
+## Tech Stack
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+| Layer | Tech |
+|-------|------|
+| Framework | Next.js 16 (App Router) |
+| Database | MongoDB Atlas (`ufl_scholars_db`, 6231 docs) |
+| Frontend | React 19, client components |
+| API | Next.js Route Handlers |
 
-## Expanding the ESLint configuration
+## Getting Started
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+```bash
+# Install dependencies
+npm install
+
+# Create .env.local with your MongoDB connection string
+echo "MONGODB_URI=your_connection_string" > .env.local
+
+# Run development server
+npm run dev
+```
+
+Open [http://localhost:3000](http://localhost:3000).
+
+## Scripts
+
+| Command | Description |
+|---------|-------------|
+| `npm run dev` | Start dev server (port 3000) |
+| `npm run build` | Production build |
+| `npm start` | Start production server |
+| `npm run lint` | Run ESLint |
+
+## API Endpoints
+
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/api/scholars` | Paginated + filtered list (card-level fields) |
+| GET | `/api/scholars/filters` | Distinct departments & positions |
+| GET | `/api/scholars/:id` | Full scholar detail |
+| POST | `/api/scholars/batch` | Full data for multiple IDs |
+
+## Project Structure
+
+```
+src/
+├── app/
+│   ├── layout.jsx              # Root layout
+│   ├── page.jsx                # Main search page
+│   ├── globals.css             # Base styles
+│   ├── App.css                 # Component styles
+│   ├── list/
+│   │   └── page.jsx            # Saved scholars list
+│   └── api/scholars/
+│       ├── route.js            # GET /api/scholars
+│       ├── filters/route.js    # GET /api/scholars/filters
+│       ├── batch/route.js      # POST /api/scholars/batch
+│       └── [id]/route.js       # GET /api/scholars/:id
+└── lib/
+    ├── db.js                   # MongoDB connection (cached)
+    └── api.js                  # Frontend API service
+```
