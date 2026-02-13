@@ -1,8 +1,14 @@
 'use client'
 
-import { useState, useMemo, useCallback, memo, useEffect, useRef } from 'react'
+import { useState, useMemo, useCallback, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
+import dynamic from 'next/dynamic'
 import { fetchScholars, fetchScholarDetail, fetchFilterOptions } from '@/lib/api'
+import ScholarCard from '@/components/ScholarCard'
+import MultiSelectFilter from '@/components/MultiSelectFilter'
+
+// Lazy-load Modal — only downloaded when user clicks a scholar card
+const Modal = dynamic(() => import('@/components/Modal'), { ssr: false })
 
 const DEPT_MAPPINGS = {
   'AG': 'College of Agricultural and Life Sciences',
@@ -42,82 +48,96 @@ const DEPT_MAPPINGS = {
 
 function App() {
 
-  // Load filters from localStorage
-  const loadFilters = () => {
-    if (typeof window === 'undefined') return null
+  // Filters — initialized with server-safe defaults
+  const [search, setSearch] = useState('')
+  const [minScore, setMinScore] = useState('')
+  const [maxScore, setMaxScore] = useState('')
+  const [minGrants, setMinGrants] = useState('')
+  const [maxGrants, setMaxGrants] = useState('')
+  const [reqSearch, setReqSearch] = useState('')
+  const [emailOnly, setEmailOnly] = useState(false)
+
+  // Department filters
+  const [selectedDepts, setSelectedDepts] = useState(new Set())
+  const [deptMode, setDeptMode] = useState('include')
+  const [selectedSubDepts, setSelectedSubDepts] = useState(new Set())
+  const [subDeptMode, setSubDeptMode] = useState('include')
+
+  // Position filter
+  const [selectedPositions, setSelectedPositions] = useState(new Set())
+  const [posMode, setPosMode] = useState('include')
+
+  // Saved list — initialized empty to avoid hydration mismatch
+  const [savedList, setSavedList] = useState(new Set())
+
+  // Guard: don't persist until hydration is complete.
+  // MUST be useState (not useRef) so persistence effects only run
+  // in the NEXT render cycle when state actually holds hydrated values.
+  const [hasHydrated, setHasHydrated] = useState(false)
+
+  // Hydrate all localStorage state after mount (client-only)
+  useEffect(() => {
+    // Hydrate filters
     const saved = localStorage.getItem('filters')
     if (saved) {
       const f = JSON.parse(saved)
-      return {
-        search: f.search || '',
-        minScore: f.minScore || '',
-        maxScore: f.maxScore || '',
-        minGrants: f.minGrants || '',
-        maxGrants: f.maxGrants || '',
-        reqSearch: f.reqSearch || '',
-        emailOnly: f.emailOnly || false,
-        selectedDepts: new Set(f.selectedDepts || []),
-        deptMode: f.deptMode || 'include',
-        selectedSubDepts: new Set(f.selectedSubDepts || []),
-        subDeptMode: f.subDeptMode || 'include',
-        selectedPositions: new Set(f.selectedPositions || []),
-        posMode: f.posMode || 'include'
-      }
+      if (f.search) setSearch(f.search)
+      if (f.minScore) setMinScore(f.minScore)
+      if (f.maxScore) setMaxScore(f.maxScore)
+      if (f.minGrants) setMinGrants(f.minGrants)
+      if (f.maxGrants) setMaxGrants(f.maxGrants)
+      if (f.reqSearch) setReqSearch(f.reqSearch)
+      if (f.emailOnly) setEmailOnly(f.emailOnly)
+      if (f.selectedDepts?.length) setSelectedDepts(new Set(f.selectedDepts))
+      if (f.deptMode) setDeptMode(f.deptMode)
+      if (f.selectedSubDepts?.length) setSelectedSubDepts(new Set(f.selectedSubDepts))
+      if (f.subDeptMode) setSubDeptMode(f.subDeptMode)
+      if (f.selectedPositions?.length) setSelectedPositions(new Set(f.selectedPositions))
+      if (f.posMode) setPosMode(f.posMode)
     }
-    return null
-  }
 
-  const initialFilters = loadFilters()
+    // Hydrate saved list
+    const sl = localStorage.getItem('savedList')
+    if (sl) setSavedList(new Set(JSON.parse(sl)))
 
-  // Filters
-  const [search, setSearch] = useState(initialFilters?.search || '')
-  const [minScore, setMinScore] = useState(initialFilters?.minScore || '')
-  const [maxScore, setMaxScore] = useState(initialFilters?.maxScore || '')
-  const [minGrants, setMinGrants] = useState(initialFilters?.minGrants || '')
-  const [maxGrants, setMaxGrants] = useState(initialFilters?.maxGrants || '')
-  const [reqSearch, setReqSearch] = useState(initialFilters?.reqSearch || '')
-  const [emailOnly, setEmailOnly] = useState(initialFilters?.emailOnly || false)
+    // Triggers a new render — persistence effects will see hydrated values
+    setHasHydrated(true)
+  }, [])
 
-  // Department filters
-  const [selectedDepts, setSelectedDepts] = useState(initialFilters?.selectedDepts || new Set())
-  const [deptMode, setDeptMode] = useState(initialFilters?.deptMode || 'include')
-  const [selectedSubDepts, setSelectedSubDepts] = useState(initialFilters?.selectedSubDepts || new Set())
-  const [subDeptMode, setSubDeptMode] = useState(initialFilters?.subDeptMode || 'include')
-
-  // Position filter
-  const [selectedPositions, setSelectedPositions] = useState(initialFilters?.selectedPositions || new Set())
-  const [posMode, setPosMode] = useState(initialFilters?.posMode || 'include')
-
-  // Persist filters to localStorage
+  // Debounced localStorage persistence for filters (only after hydration render)
+  const filterPersistRef = useRef(null)
   useEffect(() => {
-    const filters = {
-      search, minScore, maxScore, minGrants, maxGrants, reqSearch, emailOnly,
-      selectedDepts: [...selectedDepts],
-      deptMode,
-      selectedSubDepts: [...selectedSubDepts],
-      subDeptMode,
-      selectedPositions: [...selectedPositions],
-      posMode
+    if (!hasHydrated) return
+    if (filterPersistRef.current) clearTimeout(filterPersistRef.current)
+    filterPersistRef.current = setTimeout(() => {
+      const filters = {
+        search, minScore, maxScore, minGrants, maxGrants, reqSearch, emailOnly,
+        selectedDepts: [...selectedDepts],
+        deptMode,
+        selectedSubDepts: [...selectedSubDepts],
+        subDeptMode,
+        selectedPositions: [...selectedPositions],
+        posMode
+      }
+      localStorage.setItem('filters', JSON.stringify(filters))
+    }, 500)
+    return () => {
+      if (filterPersistRef.current) clearTimeout(filterPersistRef.current)
     }
-    localStorage.setItem('filters', JSON.stringify(filters))
-  }, [search, minScore, maxScore, minGrants, maxGrants, reqSearch, emailOnly,
+  }, [hasHydrated, search, minScore, maxScore, minGrants, maxGrants, reqSearch, emailOnly,
       selectedDepts, deptMode, selectedSubDepts, subDeptMode, selectedPositions, posMode])
 
   // UI state
   const [showMoreFilters, setShowMoreFilters] = useState(false)
   const router = useRouter()
 
-  // Saved list (cart-like feature) - persisted to localStorage
-  const [savedList, setSavedList] = useState(() => {
-    if (typeof window === 'undefined') return new Set()
-    const saved = localStorage.getItem('savedList')
-    return saved ? new Set(JSON.parse(saved)) : new Set()
-  })
 
-  // Persist savedList to localStorage
+
+  // Persist savedList to localStorage (only after hydration render)
   useEffect(() => {
+    if (!hasHydrated) return
     localStorage.setItem('savedList', JSON.stringify([...savedList]))
-  }, [savedList])
+  }, [savedList, hasHydrated])
 
   // Pagination
   const [page, setPage] = useState(1)
@@ -267,15 +287,22 @@ function App() {
     localStorage.removeItem('filters')
   }, [])
 
-  // Reset entire app (clear all localStorage)
+  // Reset entire app — inline two-click confirmation (no browser popup)
+  const [confirmingReset, setConfirmingReset] = useState(false)
+  const resetTimerRef = useRef(null)
+
   const resetApp = useCallback(() => {
-    if (window.confirm('Reset all app data? This will clear your saved list, filters, and copied items.')) {
-      localStorage.clear()
-      clearAllFilters()
-      setSavedList(new Set())
-      window.location.reload()
+    if (!confirmingReset) {
+      // First click — enter confirm mode for 3 seconds
+      setConfirmingReset(true)
+      resetTimerRef.current = setTimeout(() => setConfirmingReset(false), 3000)
+      return
     }
-  }, [clearAllFilters])
+    // Second click — actually reset
+    clearTimeout(resetTimerRef.current)
+    localStorage.clear()
+    window.location.reload()
+  }, [confirmingReset])
 
   // List functions
   const toggleSaved = useCallback((id) => {
@@ -364,11 +391,11 @@ function App() {
             📋 View List {savedList.size > 0 && <span className="list-count">{savedList.size}</span>}
           </button>
           <button
-            className="reset-btn"
+            className={`reset-btn${confirmingReset ? ' confirming' : ''}`}
             onClick={resetApp}
-            title="Reset App Data"
+            title={confirmingReset ? 'Click again to confirm reset' : 'Reset App Data'}
           >
-            ↻
+            {confirmingReset ? 'Sure? ↻' : '↻'}
           </button>
         </div>
       </header>
@@ -555,290 +582,6 @@ function App() {
       </div>
 
       {selected && <Modal data={selected} onClose={() => setSelected(null)} loading={modalLoading} />}
-    </div>
-  )
-}
-
-const MultiSelectFilter = memo(function MultiSelectFilter({ label, items, selected, onToggle, mode, onModeChange, onClear }) {
-  const [expanded, setExpanded] = useState(false)
-  const [filterText, setFilterText] = useState('')
-
-  const filteredItems = useMemo(() => {
-    return filterText
-      ? items.filter(i => i.toLowerCase().includes(filterText.toLowerCase()))
-      : items
-  }, [items, filterText])
-
-  return (
-    <div className="filter-section multi-select">
-      <div className="multi-header">
-        <label className="filter-label">{label}</label>
-        {selected.size > 0 && (
-          <button className="clear-filter-btn" onClick={onClear}>
-            Clear ({selected.size})
-          </button>
-        )}
-      </div>
-
-      <div className="mode-toggle">
-        <button className={`mode-btn ${mode === 'include' ? 'active' : ''}`}
-          onClick={() => onModeChange('include')}>
-          ✅ Include
-        </button>
-        <button className={`mode-btn ${mode === 'exclude' ? 'active' : ''}`}
-          onClick={() => onModeChange('exclude')}>
-          ❌ Exclude
-        </button>
-      </div>
-
-      <input
-        type="text"
-        className="filter-input filter-search"
-        placeholder="Filter options..."
-        value={filterText}
-        onChange={e => setFilterText(e.target.value)}
-      />
-
-      <div className={`checkbox-list ${expanded ? 'expanded' : ''}`}>
-        {filteredItems.slice(0, expanded ? undefined : 6).map(item => (
-          <label key={item} className="checkbox-item">
-            <input type="checkbox" checked={selected.has(item)} onChange={() => onToggle(item)} />
-            {item}
-          </label>
-        ))}
-      </div>
-
-      {filteredItems.length > 6 && (
-        <button className="expand-btn" onClick={() => setExpanded(!expanded)}>
-          {expanded ? '▲ Show less' : `▼ Show all (${filteredItems.length})`}
-        </button>
-      )}
-    </div>
-  )
-})
-
-const ScholarCard = memo(function ScholarCard({ data, onClick, isSaved, onToggleSave }) {
-  const scoreClass = data.relevance_score >= 70 ? 'score-high' :
-    data.relevance_score >= 40 ? 'score-med' : 'score-low'
-
-  const handleAddClick = (e) => {
-    e.stopPropagation()
-    onToggleSave()
-  }
-
-  return (
-    <div className={`scholar-card ${isSaved ? 'card-saved' : ''}`} onClick={onClick}>
-      <div className="card-top">
-        <div>
-          <h3 className="card-name">{data.name}</h3>
-          <p className="card-title">{data.title}</p>
-        </div>
-        <div className="card-top-right">
-          <button
-            className={`card-add-btn ${isSaved ? 'saved' : ''}`}
-            onClick={handleAddClick}
-            title={isSaved ? 'Remove from list' : 'Add to list'}
-          >
-            {isSaved ? '✓' : '+'}
-          </button>
-          <span className={`score-badge ${scoreClass}`}>{data.relevance_score}</span>
-        </div>
-      </div>
-
-      <div className="card-info">
-        <div className="info-item">
-          <span>🏛️</span>
-          <span>{data.department || 'N/A'}</span>
-        </div>
-        <div className="info-item">
-          <span>💰</span>
-          <strong>{data.active_grants_count}</strong> grants
-        </div>
-        <div className="info-item">
-          <span>📄</span>
-          <strong>{data.publications_count ?? data.publications?.length ?? 0}</strong> pubs
-        </div>
-      </div>
-
-      {data.requirements && data.requirements.length > 0 && (
-        <div className="card-tags">
-          {data.requirements.slice(0, 2).map((r, i) => (
-            <span key={i} className="tag tag-req">{r}</span>
-          ))}
-          {data.requirements.length > 2 && <span className="tag">+{data.requirements.length - 2}</span>}
-        </div>
-      )}
-
-      {data.should_email === 'Yes' && (
-        <div className="card-footer">
-          <div className="good-match-badge">✓ Good Match</div>
-        </div>
-      )}
-    </div>
-  )
-})
-
-function PublicationCard({ pub }) {
-  const [expanded, setExpanded] = useState(false)
-
-  return (
-    <div className={`pub-card ${expanded ? 'expanded' : ''}`} onClick={() => setExpanded(!expanded)}>
-      <div className="pub-header">
-        <div className="pub-title">{pub.title}</div>
-        <span className="pub-expand-icon">{expanded ? '▲' : '▼'}</span>
-      </div>
-      <div className="pub-meta">{pub.date}</div>
-      {pub.abstract && (
-        <div className={`pub-abstract ${expanded ? 'full' : ''}`}>
-          {expanded ? pub.abstract : (pub.abstract.length > 150 ? pub.abstract.substring(0, 150) + '...' : pub.abstract)}
-        </div>
-      )}
-      {expanded && !pub.abstract && (
-        <div className="pub-abstract" style={{ fontStyle: 'italic', color: 'var(--text-muted)' }}>
-          No abstract available
-        </div>
-      )}
-    </div>
-  )
-}
-
-function Modal({ data, onClose, loading }) {
-  const [tab, setTab] = useState('grants')
-
-  return (
-    <div className="modal-overlay" onClick={onClose}>
-      <div className="modal" onClick={e => e.stopPropagation()}>
-        <div className="modal-header">
-          <div className="modal-header-content">
-            <h2>{data.name}</h2>
-            <p>{data.title} • {data.department}</p>
-          </div>
-          <button className="modal-close" onClick={onClose}>×</button>
-        </div>
-
-        <div className="modal-body">
-          {loading || data._loading ? (
-            <div className="empty-state" style={{ padding: '2rem' }}>
-              <h3>Loading details...</h3>
-            </div>
-          ) : data._error ? (
-            <div className="empty-state" style={{ padding: '2rem' }}>
-              <h3>⚠️ Failed to load details</h3>
-            </div>
-          ) : (
-            <>
-              <div className="modal-section">
-                <div className="detail-grid">
-                  <div className="detail-item">
-                    <label>Email</label>
-                    <span>{data.email || 'Not available'}</span>
-                  </div>
-                  <div className="detail-item">
-                    <label>Position</label>
-                    <span>{data.position || 'N/A'}</span>
-                  </div>
-                  <div className="detail-item">
-                    <label>Relevance Score</label>
-                    <span>{data.relevance_score}/100</span>
-                  </div>
-                  <div className="detail-item">
-                    <label>Good Match</label>
-                    <span>{data.should_email}</span>
-                  </div>
-                </div>
-              </div>
-
-              {data.requirements && data.requirements.length > 0 && (
-                <div className="modal-section">
-                  <h3>💻 Possible CS Requirements</h3>
-                  <div className="card-tags">
-                    {data.requirements.map((r, i) => (
-                      <span key={i} className="tag tag-req">{r}</span>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {data.reasoning && data.reasoning.length > 0 && (
-                <div className="modal-section">
-                  <h3>📝 Analysis Reasoning <span className="count">{data.reasoning.length}</span></h3>
-                  <ul className="reasoning-list">
-                    {data.reasoning.map((r, i) => (
-                      <li key={i}>{r}</li>
-                    ))}
-                  </ul>
-                </div>
-              )}
-
-              <div className="modal-section">
-                <div className="tabs">
-                  <button className={`tab ${tab === 'grants' ? 'active' : ''}`} onClick={() => setTab('grants')}>
-                    💰 Grants ({(data.active_grants?.length || 0) + (data.expired_grants?.length || 0)})
-                  </button>
-                  <button className={`tab ${tab === 'pubs' ? 'active' : ''}`} onClick={() => setTab('pubs')}>
-                    📄 Publications ({data.publications?.length || 0})
-                  </button>
-                </div>
-
-                {tab === 'grants' && (
-                  <>
-                    {data.active_grants?.length > 0 && (
-                      <>
-                        <h3 style={{ marginBottom: '0.75rem', color: 'var(--success)' }}>
-                          🟢 Active Grants <span className="count">{data.active_grants.length}</span>
-                        </h3>
-                        {data.active_grants.map((g, i) => (
-                          <div key={i} className="grant-card">
-                            <div className="grant-title">{g.title}</div>
-                            <div className="grant-meta">
-                              {g.funder_name && <span>🏢 {g.funder_name}</span>}
-                              {g.duration && <span> • 📅 {g.duration}</span>}
-                              {g.status && <span> • {g.status}</span>}
-                            </div>
-                          </div>
-                        ))}
-                      </>
-                    )}
-
-                    {data.expired_grants?.length > 0 && (
-                      <>
-                        <h3 style={{ margin: '1rem 0 0.75rem', color: 'var(--text-muted)' }}>
-                          ⚪ Expired Grants <span className="count">{data.expired_grants.length}</span>
-                        </h3>
-                        {data.expired_grants.map((g, i) => (
-                          <div key={i} className="grant-card" style={{ opacity: 0.7 }}>
-                            <div className="grant-title">{g.title}</div>
-                            <div className="grant-meta">
-                              {g.funder_name && <span>🏢 {g.funder_name}</span>}
-                              {g.duration && <span> • 📅 {g.duration}</span>}
-                            </div>
-                          </div>
-                        ))}
-                      </>
-                    )}
-
-                    {!data.active_grants?.length && !data.expired_grants?.length && (
-                      <p style={{ color: 'var(--text-muted)' }}>No grants found.</p>
-                    )}
-                  </>
-                )}
-
-                {tab === 'pubs' && (
-                  <>
-                    {data.publications?.length > 0 ? (
-                      data.publications.map((p, i) => (
-                        <PublicationCard key={i} pub={p} />
-                      ))
-                    ) : (
-                      <p style={{ color: 'var(--text-muted)' }}>No publications found.</p>
-                    )}
-                  </>
-                )}
-              </div>
-            </>
-          )}
-        </div>
-      </div>
     </div>
   )
 }

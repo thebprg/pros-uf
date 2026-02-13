@@ -15,6 +15,13 @@ const CARD_PROJECTION = {
   requirements: 1,
 }
 
+/** Safely parse an integer from a string, returning null if invalid */
+function safeInt(value) {
+  if (!value) return null
+  const parsed = parseInt(value, 10)
+  return Number.isNaN(parsed) ? null : parsed
+}
+
 export async function GET(request) {
   try {
     const client = await clientPromise
@@ -22,12 +29,12 @@ export async function GET(request) {
     const collection = db.collection('scholars')
 
     const { searchParams } = request.nextUrl
-    const page = searchParams.get('page') || '1'
+    const page = safeInt(searchParams.get('page')) || 1
     const search = searchParams.get('search')
-    const minScore = searchParams.get('minScore')
-    const maxScore = searchParams.get('maxScore')
-    const minGrants = searchParams.get('minGrants')
-    const maxGrants = searchParams.get('maxGrants')
+    const minScore = safeInt(searchParams.get('minScore'))
+    const maxScore = safeInt(searchParams.get('maxScore'))
+    const minGrants = safeInt(searchParams.get('minGrants'))
+    const maxGrants = safeInt(searchParams.get('maxGrants'))
     const reqSearch = searchParams.get('reqSearch')
     const emailOnly = searchParams.get('emailOnly')
     const depts = searchParams.get('depts')
@@ -48,17 +55,17 @@ export async function GET(request) {
     }
 
     // Relevance score range
-    if (minScore || maxScore) {
+    if (minScore !== null || maxScore !== null) {
       query.relevance_score = {}
-      if (minScore) query.relevance_score.$gte = parseInt(minScore)
-      if (maxScore) query.relevance_score.$lte = parseInt(maxScore)
+      if (minScore !== null) query.relevance_score.$gte = minScore
+      if (maxScore !== null) query.relevance_score.$lte = maxScore
     }
 
     // Active grants range
-    if (minGrants || maxGrants) {
+    if (minGrants !== null || maxGrants !== null) {
       query.active_grants_count = {}
-      if (minGrants) query.active_grants_count.$gte = parseInt(minGrants)
-      if (maxGrants) query.active_grants_count.$lte = parseInt(maxGrants)
+      if (minGrants !== null) query.active_grants_count.$gte = minGrants
+      if (maxGrants !== null) query.active_grants_count.$lte = maxGrants
     }
 
     // CS requirements keyword search
@@ -66,9 +73,9 @@ export async function GET(request) {
       query.requirements = { $elemMatch: { $regex: reqSearch, $options: 'i' } }
     }
 
-    // Good match only
+    // Good match only (Score >= 50)
     if (emailOnly === 'true') {
-      query.should_email = 'Yes'
+      query.relevance_score = { $gte: 50 }
     }
 
     // Department filter (by prefix code)
@@ -113,7 +120,7 @@ export async function GET(request) {
     }
 
     const limit = 25
-    const skip = (parseInt(page) - 1) * limit
+    const skip = (page - 1) * limit
 
     // Aggregation to add publications_count without returning the full array
     const pipeline = [
@@ -143,7 +150,7 @@ export async function GET(request) {
     return NextResponse.json({
       data,
       total,
-      page: parseInt(page),
+      page,
       totalPages: Math.ceil(total / limit),
     })
   } catch (err) {
